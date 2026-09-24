@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel de Pacientes</title>
+<style>html,body{margin:0;background:#f6f6f3}</style>
+</head>
+<body>
+<!-- Painel de Pacientes (dados ao vivo do Google Sheets) | cole este código inteiro em um bloco "HTML personalizado" (Gutenberg) ou no widget "HTML" (Elementor) -->
+<div id="painel-pacientes" data-tema="claro"></div>
+<template id="painel-pacientes-tpl">
+<style>
+:host {
+  display: block;
+  --page: #f6f6f3;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,.10);
+  --c-prot: #2a78d6;
+  --c-cons: #eb6834;
+  --c-meta: #1baf7a;
+  --c-line: #52514e;
+  --good: #006300;
+  --shadow: 0 6px 24px rgba(11,11,11,.12);
+  --sel-bg: color-mix(in srgb, #2a78d6 12%, #fcfcfb);
+  --sel-bd: #2a78d6;
+  --font: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :host([data-tema="auto"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,.10);
+    --c-prot: #3987e5;
+    --c-cons: #d95926;
+    --c-meta: #199e70;
+    --c-line: #c3c2b7;
+    --good: #0ca30c;
+    --shadow: 0 6px 24px rgba(0,0,0,.6);
+    --sel-bg: color-mix(in srgb, #3987e5 22%, #1a1a19);
+    --sel-bd: #3987e5;
+  }
+}
+:host([data-tema="escuro"]) {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255,255,255,.10);
+  --c-prot: #3987e5;
+  --c-cons: #d95926;
+  --c-meta: #199e70;
+  --c-line: #c3c2b7;
+  --good: #0ca30c;
+  --shadow: 0 6px 24px rgba(0,0,0,.6);
+  --sel-bg: color-mix(in srgb, #3987e5 22%, #1a1a19);
+  --sel-bd: #3987e5;
+}
+*, *::before, *::after { box-sizing: border-box; }
+.pp {
+  background: var(--page); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.45; text-align: left;
+  padding-inline: 16px; padding-block: 24px 40px; border-radius: 16px; container-type: inline-size;
+}
+[hidden] { display: none !important; }
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+button, select { margin: 0; font-family: inherit; font-size: 13px; color: var(--ink); }
+:focus-visible { outline: 2px solid var(--c-prot); outline-offset: 2px; border-radius: 4px; }
+/* header */
+.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 24px; }
+h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; text-wrap: balance; }
+.top p { margin: 0; color: var(--ink-2); font-size: 13px; }
+/* filters */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding-block: 12px; border-block: 1px solid var(--grid); }
+.f { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fl { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.f label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.f .to { color: var(--muted); font-size: 12px; }
+select {
+  appearance: none; background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23898781' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 28px 6px 10px; cursor: pointer;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip, .seg button {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  padding: 5px 11px; cursor: pointer; line-height: 1.2;
+}
+.chip:hover, .seg button:hover, .tog:hover, .clear:hover { background: var(--grid); }
+.chip[aria-pressed="true"], .seg button[aria-pressed="true"] { background: var(--sel-bg); border-color: var(--sel-bd); font-weight: 600; }
+.seg { display: flex; gap: 6px; }
+.clear { background: none; border: none; color: var(--ink-2); text-decoration: underline; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+/* cards */
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+.s4 { grid-column: span 4; } .s5 { grid-column: span 5; } .s7 { grid-column: span 7; } .s8 { grid-column: span 8; } .s12 { grid-column: span 12; }
+.card-h { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
+.card-h h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.card-h p { margin: 2px 0 0; font-size: 12px; color: var(--ink-2); }
+.tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; }
+.lg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.lk { width: 14px; height: 0; border-top: 2px solid; display: inline-block; border-radius: 2px; }
+.tog { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 3px 9px; font-size: 12px; color: var(--ink-2); cursor: pointer; }
+.plot { width: 100%; }
+.plot svg { display: block; overflow: visible; }
+.card[data-view="table"] .plot, .card:not([data-view="table"]) .tbl { display: none; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th { text-align: left; font-weight: 600; color: var(--ink-2); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 6px 10px; border-bottom: 1px solid var(--axis); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+table.camp { min-width: 720px; }
+th.n, td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* svg text */
+svg text { font-family: var(--font); }
+.t-ax { fill: var(--muted); font-size: 11px; }
+.t-lb { fill: var(--ink-2); font-size: 12px; }
+.t-v { fill: var(--ink); font-size: 12px; font-weight: 600; }
+.t-v2 { fill: var(--ink-2); font-size: 12px; font-weight: 400; }
+.gl { stroke: var(--grid); stroke-width: 1; }
+.axl { stroke: var(--axis); stroke-width: 1; }
+.hit { fill: transparent; cursor: default; }
+.hit:hover, .hit:focus { fill: var(--ink); fill-opacity: .045; outline: none; }
+/* hero and kpis */
+.hero { display: flex; flex-direction: column; gap: 14px; justify-content: space-between; }
+.hero .lab { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.hero .big { font-size: clamp(34px, 3.6cqw, 48px); font-weight: 700; letter-spacing: -.02em; line-height: 1.05; margin: 4px 0 6px; }
+.hero .sub { font-size: 13px; color: var(--ink-2); margin: 0; }
+.notes { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--grid); list-style: none; }
+.notes li { font-size: 13px; color: var(--ink); }
+.notes b { font-weight: 600; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-content: stretch; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tile .k { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+.tile .v { font-size: 28px; font-weight: 600; letter-spacing: -.01em; line-height: 1.15; }
+.tile .d { font-size: 12px; color: var(--ink-2); }
+/* campaigns */
+.cname { font-weight: 600; font-size: 13px; }
+.craw { font-size: 11px; color: var(--muted); word-break: break-word; margin-top: 1px; }
+.ctags { font-size: 12px; color: var(--ink-2); }
+.bar-cell { display: flex; align-items: center; gap: 8px; min-width: 150px; justify-content: flex-end; }
+.bar-cell .b { height: 8px; border-radius: 0 4px 4px 0; background: var(--c-prot); min-width: 2px; }
+.bar-cell .bt { width: 96px; display: flex; justify-content: flex-start; }
+.bar-cell span.val { min-width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
+.empty { padding: 32px 8px; color: var(--ink-2); text-align: center; }
+.user { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.login { width: 100%; max-width: 360px; margin: 12vh auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; display: flex; flex-direction: column; box-sizing: border-box; }
+.login h1 { margin-bottom: 4px; }
+.login-sub { margin: 0 0 20px; font-size: 13px; color: var(--ink-2); }
+.login label { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.login input { font: inherit; font-size: 15px; color: var(--ink); background: var(--page); border: 1px solid var(--axis); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; }
+.login input:focus { outline: 2px solid var(--c-prot); outline-offset: 0; border-color: var(--c-prot); }
+.login-msg { min-height: 1.3em; margin: 0 0 10px; font-size: 13px; color: #c2410c; }
+.login button { font: inherit; font-weight: 600; font-size: 15px; color: #fff; background: var(--c-prot); border: none; border-radius: 8px; padding: 11px; cursor: pointer; }
+.login button:hover { filter: brightness(.94); }
+.login button:disabled { opacity: .6; cursor: wait; }
+.foot { font-size: 12px; color: var(--ink-2); display: flex; flex-direction: column; gap: 4px; max-width: 90ch; }
+.heat-scale { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+.heat-scale i { display: inline-block; width: 72px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, color-mix(in srgb, var(--c-prot) 8%, var(--surface)), var(--c-prot)); }
+.scrolly { max-height: 560px; overflow: auto; }
+.scrolly thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+table.cri { min-width: 800px; }
+.cid { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; font-weight: 600; user-select: all; }
+.copy { margin-left: 8px; background: none; border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px; font-size: 11px; color: var(--ink-2); cursor: pointer; }
+.copy:hover { background: var(--grid); }
+tr.sp td { color: var(--ink-2); }
+tr.sp.first td { border-top: 2px solid var(--axis); }
+.csub { font-size: 12px; color: var(--ink-2); }
+/* tooltip */
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 8px 10px; font-size: 12px; min-width: 150px; max-width: 260px; }
+#tip .tt { font-weight: 600; margin-bottom: 4px; }
+#tip .tr { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding-block: 1px; }
+#tip .tn { display: flex; align-items: center; gap: 6px; color: var(--ink-2); }
+#tip .tv { font-weight: 600; font-variant-numeric: tabular-nums; }
+#tip .tf { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--grid); color: var(--ink-2); }
+@container (max-width: 1000px) {
+  .s4, .s5, .s7, .s8 { grid-column: span 12; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero .big { font-size: 48px; }
+}
+@container (max-width: 480px) {
+  .tile .v { font-size: 24px; }
+  .filters { gap: 12px; }
+}
+</style>
+<div class="pp">
+<div class="wrap">
+  <header class="top">
+    <h1 id="titulo">Painel de Pacientes</h1>
+    <p>Consolidado até <span id="consolidado">–</span> · <span id="totalRows"></span> atendimentos · nomes de pacientes não aparecem neste painel</p>
+  </header>
+  <section class="filters" aria-label="Filtros">
+    <div class="f">
+      <label for="fFrom">Período</label>
+      <select id="fFrom"></select><span class="to">até</span><select id="fTo" aria-label="Período final"></select>
+    </div>
+    <div class="f"><span class="fl" id="lblMed">Médico</span><div class="chips" id="chMed" role="group" aria-labelledby="lblMed"></div></div>
+    <div class="f"><span class="fl" id="lblTipo">Tipo</span><div class="seg" id="segTipo" role="group" aria-labelledby="lblTipo"></div></div>
+    <div class="f"><span class="fl" id="lblOrig">Origem</span><div class="chips" id="chOrig" role="group" aria-labelledby="lblOrig"></div></div>
+    <button class="clear" id="btnClear" hidden>Limpar filtros</button>
+  </section>
+  <section class="grid" aria-label="Resumo">
+    <div class="card s4 hero">
+      <div>
+        <div class="lab">Faturamento no período</div>
+        <div class="big" id="heroVal">–</div>
+        <p class="sub" id="heroSub"></p>
+      </div>
+      <ul class="notes" id="notes"></ul>
+    </div>
+    <div class="tiles s8" id="tiles"></div>
+  </section>
+  <section class="grid">
+    <div class="card s7" id="cMonth">
+      <div class="card-h">
+        <div><h2>Faturamento por mês</h2><p>Soma dos valores de consultas e protocolos</p></div>
+        <div class="tools">
+          <span class="lg"><i class="sw" style="background:var(--c-prot)"></i>Protocolo</span>
+          <span class="lg"><i class="sw" style="background:var(--c-cons)"></i>Consulta</span>
+          <button class="tog" type="button" aria-pressed="false">Ver tabela</button>
+        </div>
+      </div>
+      <div class="plot"></div><div class="tbl"></div>
+    </div>
+    <div class="card s5" id="cMed">
+      <div class="card-h">
+        <div><h2>Faturamento por médico</h2><p>Valor total e participação no período</p></div>
+        <div class="tools"><button class="tog" type="button" aria-pressed="false">Ver tabela</button></div>
+      </div>
+      <div class="plot"></div><div class="tbl"></div>
+    </div>
+    <div class="card s5" id="cOrig">
+      <div class="card-h">
+        <div><h2>Faturamento por origem</h2><p>Como o paciente chegou, segundo o rastreio</p></div>
+        <div class="tools"><button class="tog" type="button" aria-pressed="false">Ver tabela</button></div>
+      </div>
+      <div class="plot"></div><div class="tbl"></div>
+    </div>
+    <div class="card s7" id="cTrack">
+      <div class="card-h">
+        <div><h2>Quanto do faturamento tem origem rastreada</h2><p>Participação de cada grupo no faturamento do mês</p></div>
+        <div class="tools">
+          <span class="lg"><i class="lk" style="border-color:var(--c-line)"></i>Sem tracking</span>
+          <span class="lg"><i class="lk" style="border-color:var(--c-meta)"></i>Meta Ads</span>
+          <button class="tog" type="button" aria-pressed="false">Ver tabela</button>
+        </div>
+      </div>
+      <div class="plot"></div><div class="tbl"></div>
+    </div>
+    <div class="card s12" id="cHeat">
+      <div class="card-h">
+        <div><h2>Faturamento por médico e mês</h2><p>Quanto mais escuro, maior o valor da célula</p></div>
+        <div class="tools">
+          <span class="heat-scale">menos<i></i>mais</span>
+          <button class="tog" type="button" aria-pressed="false">Ver tabela</button>
+        </div>
+      </div>
+      <div class="plot"></div><div class="tbl"></div>
+    </div>
+    <div class="card s12" id="cCamp">
+      <div class="card-h">
+        <div><h2>Campanhas que trouxeram pacientes</h2><p id="campSub"></p></div>
+      </div>
+      <div class="tbl" style="display:block"></div>
+    </div>
+    <div class="card s12" id="cCri">
+      <div class="card-h">
+        <div><h2>Criativos por ID do anúncio</h2><p id="criSub"></p></div>
+        <div class="tools"><span class="fl" id="lblSort">Ordenar por</span><div class="seg" id="segSort" role="group" aria-labelledby="lblSort">
+          <button type="button" data-v="fat" aria-pressed="true">Faturamento</button><button type="button" data-v="n" aria-pressed="false">Atendimentos</button><button type="button" data-v="tk" aria-pressed="false">Ticket médio</button>
+        </div></div>
+      </div>
+      <div class="tbl scrolly" style="display:block"></div>
+    </div>
+  </section>
+  <footer class="foot">
+    <span><b>Sem tracking</b>: atendimento sem origem rastreada por UTM ou CRM. Os números por origem e campanha cobrem só a parte rastreada.</span>
+    <span><b>Pacientes únicos</b>: pacientes distintos dentro dos filtros atuais. Um paciente atendido por dois médicos aparece uma vez no total e uma vez em cada médico.</span>
+    <span><b>Ticket médio</b>: faturamento dividido pelos atendimentos com valor informado. <span id="noVal"></span></span>
+  </footer>
+</div>
+<div id="tip" role="tooltip" hidden></div>
+</div>
+</template>
+<script>
+(function () {
+  var host = document.getElementById('painel-pacientes');
+  var tpl = document.getElementById('painel-pacientes-tpl');
+  if (!host || !tpl || !host.attachShadow || host.shadowRoot) return;
+  var root = host.attachShadow({ mode: 'open' });
+  root.appendChild(tpl.content.cloneNode(true));
+  if (!document.getElementById('painel-pacientes-fonte')) {
+    var l = document.createElement('link');
+    l.id = 'painel-pacientes-fonte'; l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap';
+    document.head.appendChild(l);
+  }
+// ===== Dados ao vivo (Google Sheets via Apps Script) =====
+// Cole aqui a URL do app da Web do Apps Script (termina em /exec)
+const API_URL = 'https://script.google.com/macros/s/AKfycbzObQHcdUtkr1o29ret5RF8qBpQx4dTR5gZgfaU5qaHyMG34O7X7tI994eNmsVrDEQWqA/exec';
+const CHECAR_A_CADA_MIN = 5; // aba aberta verifica se a planilha mudou
+
+const CHAVE_SESSAO = 'painel-pacientes-sessao';
+let versaoAtual = null, ro = null, timer = null;
+
+const sessao = {
+  ler() { try { return JSON.parse(sessionStorage.getItem(CHAVE_SESSAO) || 'null'); } catch (e) { return null; } },
+  salvar(v) { try { sessionStorage.setItem(CHAVE_SESSAO, JSON.stringify(v)); } catch (e) {} },
+  limpar() { try { sessionStorage.removeItem(CHAVE_SESSAO); } catch (e) {} }
+};
+
+async function api(corpo) {
+  // text/plain evita a checagem prévia de CORS que o Apps Script não responde
+  const r = await fetch(API_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(corpo) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+function limparTela() {
+  if (ro) { ro.disconnect(); ro = null; }
+  root.replaceChildren(tpl.content.cloneNode(true));
+  return root.querySelector('.wrap');
+}
+function mensagem(txt) {
+  const w = limparTela();
+  const d = document.createElement('div'); d.className = 'empty'; d.textContent = txt;
+  w.replaceChildren(d);
+}
+
+function telaLogin(aviso) {
+  pararChecagem();
+  const w = limparTela();
+  const f = document.createElement('form'); f.className = 'login'; f.noValidate = true;
+  f.innerHTML = `
+    <h1>Painel de Pacientes</h1>
+    <p class="login-sub">Entre com seu usuário para ver os dados.</p>
+    <label for="lgUser">Usuário</label>
+    <input id="lgUser" name="usuario" autocomplete="username" required>
+    <label for="lgPass">Senha</label>
+    <input id="lgPass" name="senha" type="password" autocomplete="current-password" required>
+    <p class="login-msg" role="alert" aria-live="polite"></p>
+    <button type="submit">Entrar</button>`;
+  w.replaceChildren(f);
+  const msg = f.querySelector('.login-msg'), btn = f.querySelector('button');
+  if (aviso) msg.textContent = aviso;
+  f.querySelector('#lgUser').focus();
+  f.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const usuario = f.usuario.value.trim(), senha = f.senha.value;
+    if (!usuario || !senha) { msg.textContent = 'Informe usuário e senha.'; return; }
+    btn.disabled = true; btn.textContent = 'Entrando…'; msg.textContent = '';
+    try {
+      const r = await api({ acao: 'login', usuario, senha });
+      if (!r.ok) throw new Error(r.mensagem || 'Não foi possível entrar.');
+      sessao.salvar({ token: r.token, nome: r.nome });
+      carregar();
+    } catch (e) {
+      msg.textContent = e.message === 'Failed to fetch' ? 'Sem conexão com o servidor. Tente de novo.' : e.message;
+      btn.disabled = false; btn.textContent = 'Entrar';
+      f.senha.value = ''; f.senha.focus();
+    }
+  });
+}
+
+async function sair() {
+  const s = sessao.ler(); sessao.limpar();
+  if (s) api({ acao: 'sair', token: s.token }).catch(() => {});
+  telaLogin('Você saiu do painel.');
+}
+
+async function carregar() {
+  const s = sessao.ler();
+  if (!s) return telaLogin();
+  mensagem('Carregando dados da planilha…');
+  try {
+    const D = await api({ acao: 'dados', token: s.token });
+    if (D.erro === 'sessao') { sessao.limpar(); return telaLogin(D.mensagem); }
+    if (D.erro) throw new Error(D.mensagem || D.erro);
+    versaoAtual = D.meta && D.meta.versao;
+    limparTela();
+    ro = start(D);
+    const top = root.querySelector('.top'), u = document.createElement('div');
+    u.className = 'user';
+    const nm = document.createElement('span'); nm.textContent = s.nome;
+    const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'clear'; bt.textContent = 'Sair';
+    bt.addEventListener('click', sair);
+    u.append(nm, bt); top.append(u);
+    iniciarChecagem();
+  } catch (e) {
+    console.error('[painel]', e);
+    mensagem('Não foi possível carregar os dados da planilha (' + e.message + '). Recarregue a página em alguns instantes.');
+  }
+}
+
+function pararChecagem() { if (timer) { clearInterval(timer); timer = null; } }
+function iniciarChecagem() {
+  pararChecagem();
+  timer = setInterval(async () => {
+    if (document.hidden) return;
+    const s = sessao.ler(); if (!s) return;
+    try {
+      const v = await api({ acao: 'dados', token: s.token, soVersao: true });
+      if (v.erro === 'sessao') { sessao.limpar(); telaLogin(v.mensagem); }
+      else if (v.versao && v.versao !== versaoAtual) carregar();
+    } catch (e) {}
+  }, CHECAR_A_CADA_MIN * 60000);
+}
+
+carregar();
+
+function start(D) {
+// row: [med, mes, dia, tipo(0 protocolo,1 consulta), valor|null, paciente, origem, campanha|-1, criativo|-1]
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const ULT = D.rows.reduce((a, r) => Math.max(a, r[1]), 0);
+const MN = MESES.slice(0, ULT + 1);
+const YY = '/' + String(D.meta && D.meta.ano || new Date().getFullYear()).slice(-2);
+const TIPOS = ['Protocolo','Consulta'];
+const ORIG_HINT = {'Orgânico':'Instagram orgânico, Google orgânico e TikTok'};
+const I_META = D.orig.indexOf('Meta Ads'), I_UNTR = D.orig.indexOf('Sem tracking');
+const S = { from: 0, to: ULT, meds: new Set(), tipo: -1, origs: new Set() };
+const $ = (s, r = root) => r.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+/* ---------- formatting ---------- */
+const nf = (o) => new Intl.NumberFormat('pt-BR', o);
+const fInt = (v) => nf({ maximumFractionDigits: 0 }).format(v);
+const fBRL = (v) => 'R$ ' + nf({ minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+const fBRL0 = (v) => 'R$ ' + nf({ maximumFractionDigits: 0 }).format(v);
+function fComp(v) { // compact, no currency symbol
+  const a = Math.abs(v);
+  if (a >= 1e6) return nf({ maximumFractionDigits: 2 }).format(v / 1e6) + ' mi';
+  if (a >= 1e3) return nf({ maximumFractionDigits: 0 }).format(v / 1e3) + ' mil';
+  return nf({ maximumFractionDigits: 0 }).format(v);
+}
+const fCompBRL = (v) => 'R$ ' + fComp(v);
+const fPct = (x) => (x > 0 && x < 0.005) ? '<1%' : nf({ style: 'percent', maximumFractionDigits: 0 }).format(x);
+/* ---------- data helpers ---------- */
+function slice() {
+  return D.rows.filter(r =>
+    r[1] >= S.from && r[1] <= S.to &&
+    (S.meds.size === 0 || S.meds.has(r[0])) &&
+    (S.tipo === -1 || r[3] === S.tipo) &&
+    (S.origs.size === 0 || S.origs.has(r[6])));
+}
+const sumV = (rows, f = () => true) => rows.reduce((a, r) => (r[4] != null && f(r)) ? a + r[4] : a, 0);
+const cntV = (rows) => rows.reduce((a, r) => r[4] != null ? a + 1 : a, 0);
+const uniq = (rows) => new Set(rows.map(r => r[5])).size;
+const months = () => { const m = []; for (let i = S.from; i <= S.to; i++) m.push(i); return m; };
+const share = (a, b) => b > 0 ? a / b : 0;
+/* ---------- tooltip ---------- */
+const tipEl = $('#tip');
+function tipShow(x, y, title, items, foot) {
+  tipEl.replaceChildren();
+  const t = document.createElement('div'); t.className = 'tt'; t.textContent = title; tipEl.append(t);
+  for (const it of items) {
+    const row = document.createElement('div'); row.className = 'tr';
+    const n = document.createElement('span'); n.className = 'tn';
+    if (it.color) {
+      const k = document.createElement('i');
+      if (it.line) { k.className = 'lk'; k.style.borderColor = it.color; } else { k.className = 'sw'; k.style.background = it.color; }
+      n.append(k);
+    }
+    n.append(document.createTextNode(it.name));
+    const v = document.createElement('span'); v.className = 'tv'; v.textContent = it.val;
+    row.append(n, v); tipEl.append(row);
+  }
+  if (foot) { const f = document.createElement('div'); f.className = 'tf'; f.textContent = foot; tipEl.append(f); }
+  tipEl.hidden = false;
+  const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  let px = x + 14, py = y + 14;
+  if (px + w > innerWidth - 8) px = x - w - 14;
+  if (py + h > innerHeight - 8) py = y - h - 14;
+  tipEl.style.left = Math.max(8, px) + 'px'; tipEl.style.top = Math.max(8, py) + 'px';
+}
+const tipHide = () => { tipEl.hidden = true; };
+function bindTip(el, fn) {
+  el.addEventListener('pointermove', e => fn(e.clientX, e.clientY));
+  el.addEventListener('pointerleave', tipHide);
+  el.addEventListener('focus', () => { const b = el.getBoundingClientRect(); fn(b.left + b.width / 2, b.top + b.height / 2); });
+  el.addEventListener('blur', tipHide);
+}
+/* ---------- svg helpers ---------- */
+function s(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.append(e);
+  return e;
+}
+function stx(parent, x, y, txt, cls, anchor, extra = {}) {
+  const t = s('text', Object.assign({ x, y, class: cls, 'text-anchor': anchor || 'start' }, extra), parent);
+  t.textContent = txt; return t;
+}
+function niceTicks(max, count = 4) {
+  if (max <= 0) return { max: 1, ticks: [0, 1] };
+  const raw = max / count, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+  const step = (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+  const top = Math.ceil(max / step - 1e-9) * step, ticks = [];
+  for (let v = 0; v <= top + step * 1e-6; v += step) ticks.push(v);
+  return { max: top, ticks };
+}
+function colPath(x, y, w, h, r) { // rounded top, square baseline
+  r = Math.min(r, h, w / 2);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+function rowPath(x, y, w, h, r, roundRight) { // horizontal bar, optional rounded right end
+  r = Math.min(r, w, h / 2);
+  if (!roundRight) return `M${x},${y}h${w}v${h}h${-w}Z`;
+  return `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h - r}Q${x + w},${y + h} ${x + w - r},${y + h}H${x}Z`;
+}
+function emptyMsg(el, msg = 'Nenhum atendimento com estes filtros.') {
+  el.replaceChildren(); const d = document.createElement('div'); d.className = 'empty'; d.textContent = msg; el.append(d);
+}
+function makeTable(el, head, rows, numFrom = 1) {
+  el.replaceChildren();
+  const t = document.createElement('table'), th = document.createElement('thead'), tb = document.createElement('tbody');
+  const hr = document.createElement('tr');
+  head.forEach((h, i) => { const c = document.createElement('th'); c.textContent = h; if (i >= numFrom) c.className = 'n'; hr.append(c); });
+  th.append(hr);
+  rows.forEach(r => { const tr = document.createElement('tr'); r.forEach((v, i) => { const c = document.createElement('td'); c.textContent = v; if (i >= numFrom) c.className = 'n'; tr.append(c); }); tb.append(tr); });
+  t.append(th, tb); el.append(t);
+}
+/* ---------- chart: monthly stacked columns ---------- */
+function drawMonthly(card, rows) {
+  const el = $('.plot', card), W = el.clientWidth || 600, H = 270;
+  const ms = months();
+  const data = ms.map(m => { const r = rows.filter(x => x[1] === m); return { m, prot: sumV(r, x => x[3] === 0), cons: sumV(r, x => x[3] === 1), n: r.length }; });
+  makeTable($('.tbl', card), ['Mês', 'Protocolo', 'Consulta', 'Total', 'Atendimentos'],
+    data.map(d => [MN[d.m] + YY, fBRL(d.prot), fBRL(d.cons), fBRL(d.prot + d.cons), fInt(d.n)]));
+  if (!rows.length) return emptyMsg(el);
+  el.replaceChildren();
+  const ml = 50, mr = 8, mt = 26, mb = 26, pw = W - ml - mr, ph = H - mt - mb;
+  const tk = niceTicks(Math.max(...data.map(d => d.prot + d.cons)));
+  const y = v => mt + ph - v / tk.max * ph;
+  const svg = s('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Faturamento por mês, empilhado por tipo' }, el);
+  tk.ticks.forEach(v => {
+    s('line', { x1: ml, x2: W - mr, y1: y(v), y2: y(v), class: v === 0 ? 'axl' : 'gl' }, svg);
+    stx(svg, ml - 8, y(v) + 4, fComp(v), 't-ax', 'end');
+  });
+  const slot = pw / data.length, bw = Math.min(24, slot * 0.6);
+  const peak = data.reduce((a, d) => (d.prot + d.cons) > (a.prot + a.cons) ? d : a, data[0]);
+  data.forEach((d, i) => {
+    const cx = ml + slot * i + slot / 2, x = cx - bw / 2;
+    const segs = [{ v: d.prot, c: 'var(--c-prot)' }, { v: d.cons, c: 'var(--c-cons)' }].filter(g => g.v > 0);
+    let base = y(0);
+    segs.forEach((g, k) => {
+      const h = g.v / tk.max * ph, top = k === segs.length - 1;
+      const hh = k > 0 ? Math.max(h - 2, 0.5) : h;
+      const p = s('path', { d: top ? colPath(x, base - h, bw, hh, 4) : `M${x},${base - h}h${bw}v${hh}h${-bw}Z`, style: `fill:${g.c}` }, svg);
+      base -= h;
+    });
+    if (d === peak && d.prot + d.cons > 0) stx(svg, cx, y(d.prot + d.cons) - 8, fCompBRL(d.prot + d.cons), 't-v', 'middle');
+    stx(svg, cx, H - 8, MN[d.m], 't-ax', 'middle');
+    const hit = s('rect', { x: cx - slot / 2, y: mt - 6, width: slot, height: ph + 6, class: 'hit', tabindex: 0, role: 'img', 'aria-label': `${MN[d.m]}${YY}: ${fBRL0(d.prot + d.cons)}` }, svg);
+    bindTip(hit, (px, py) => tipShow(px, py, MN[d.m] + YY, [
+      { color: 'var(--c-prot)', name: 'Protocolo', val: fBRL0(d.prot) },
+      { color: 'var(--c-cons)', name: 'Consulta', val: fBRL0(d.cons) },
+    ], `Total ${fBRL0(d.prot + d.cons)} · ${fInt(d.n)} atendimentos`));
+  });
+}
+/* ---------- chart: horizontal stacked bars ---------- */
+function drawHBars(card, rowsIn, ariaLabel, firstHead) {
+  const el = $('.plot', card), W = el.clientWidth || 400;
+  const total = rowsIn.reduce((a, r) => a + r.prot + r.cons, 0);
+  makeTable($('.tbl', card), [firstHead, 'Protocolo', 'Consulta', 'Total', '% do total', 'Atendimentos'],
+    rowsIn.map(r => [r.label, fBRL(r.prot), fBRL(r.cons), fBRL(r.prot + r.cons), fPct(share(r.prot + r.cons, total)), fInt(r.n)]));
+  if (!rowsIn.length || total <= 0) return emptyMsg(el);
+  el.replaceChildren();
+  const rh = 34, bh = 16, lw = Math.min(118, Math.max(96, W * 0.27)), rr = 116, H = rowsIn.length * rh + 6;
+  const pw = Math.max(40, W - lw - rr), max = Math.max(...rowsIn.map(r => r.prot + r.cons));
+  const svg = s('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': ariaLabel }, el);
+  s('line', { x1: lw, x2: lw, y1: 0, y2: H - 6, class: 'axl' }, svg);
+  rowsIn.forEach((r, i) => {
+    const y0 = i * rh + 3, by = y0 + (rh - bh) / 2, tot = r.prot + r.cons;
+    stx(svg, lw - 10, by + bh / 2 + 4, r.label, 't-lb', 'end');
+    const wp = r.prot / max * pw, wc = r.cons / max * pw;
+    const segs = [{ w: wp, c: 'var(--c-prot)' }, { w: wc, c: 'var(--c-cons)' }].filter(g => g.w > 0.4);
+    let x = lw;
+    segs.forEach((g, k) => {
+      const gx = k > 0 ? x + 2 : x, gw = k > 0 ? Math.max(g.w - 2, 0.5) : g.w;
+      s('path', { d: rowPath(gx, by, gw, bh, 4, k === segs.length - 1), style: `fill:${g.c}` }, svg);
+      x += g.w;
+    });
+    const end = lw + (wp + wc);
+    const t = stx(svg, end + 8, by + bh / 2 + 4, fCompBRL(tot), 't-v', 'start');
+    const ts = s('tspan', { class: 't-v2', dx: 6 }, t); ts.textContent = fPct(share(tot, total));
+    const hit = s('rect', { x: 0, y: y0, width: W, height: rh, class: 'hit', tabindex: 0, role: 'img', 'aria-label': `${r.label}: ${fBRL0(tot)}` }, svg);
+    bindTip(hit, (px, py) => tipShow(px, py, r.label, [
+      { color: 'var(--c-prot)', name: 'Protocolo', val: fBRL0(r.prot) },
+      { color: 'var(--c-cons)', name: 'Consulta', val: fBRL0(r.cons) },
+    ], `Total ${fBRL0(tot)} (${fPct(share(tot, total))}) · ${fInt(r.n)} atendimentos`));
+  });
+}
+/* ---------- chart: tracking lines ---------- */
+function drawTrack(card, rows) {
+  const el = $('.plot', card), W = el.clientWidth || 600, H = 270;
+  const ms = months();
+  const pts = ms.map(m => {
+    const r = rows.filter(x => x[1] === m), tot = sumV(r);
+    return { m, tot, un: tot > 0 ? sumV(r, x => x[6] === I_UNTR) / tot : null, meta: tot > 0 ? sumV(r, x => x[6] === I_META) / tot : null };
+  });
+  makeTable($('.tbl', card), ['Mês', 'Faturamento', 'Sem tracking', 'Meta Ads'],
+    pts.map(p => [MN[p.m] + YY, fBRL(p.tot), p.un == null ? '–' : fPct(p.un), p.meta == null ? '–' : fPct(p.meta)]));
+  if (!rows.length) return emptyMsg(el);
+  el.replaceChildren();
+  const ml = 40, mr = 44, mt = 12, mb = 26, pw = W - ml - mr, ph = H - mt - mb;
+  const x = i => ml + (pts.length === 1 ? pw / 2 : i * pw / (pts.length - 1));
+  const y = v => mt + ph - v * ph;
+  const svg = s('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Participação de sem tracking e Meta Ads no faturamento, por mês' }, el);
+  [0, .25, .5, .75, 1].forEach(v => {
+    s('line', { x1: ml, x2: W - mr, y1: y(v), y2: y(v), class: v === 0 ? 'axl' : 'gl' }, svg);
+    stx(svg, ml - 8, y(v) + 4, fPct(v), 't-ax', 'end');
+  });
+  pts.forEach((p, i) => stx(svg, x(i), H - 8, MN[p.m], 't-ax', 'middle'));
+  const series = [{ key: 'un', color: 'var(--c-line)', name: 'Sem tracking' }, { key: 'meta', color: 'var(--c-meta)', name: 'Meta Ads' }];
+  const ends = [];
+  series.forEach(se => {
+    let d = '', pen = false, last = -1;
+    pts.forEach((p, i) => { if (p[se.key] == null) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i) + ',' + y(p[se.key]); pen = true; last = i; });
+    s('path', { d, style: `fill:none;stroke:${se.color}`, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+    if (last >= 0) {
+      s('circle', { cx: x(last), cy: y(pts[last][se.key]), r: 4, style: `fill:${se.color};stroke:var(--surface)`, 'stroke-width': 2 }, svg);
+      ends.push({ se, i: last, v: pts[last][se.key] });
+    }
+  });
+  if (ends.length === 2 && Math.abs(y(ends[0].v) - y(ends[1].v)) < 15) { /* labels would collide: legend and tooltip carry it */ }
+  else ends.forEach(e => stx(svg, x(e.i) + 10, y(e.v) + 4, fPct(e.v), 't-v', 'start'));
+  // crosshair
+  const cross = s('g', { style: 'display:none' }, svg);
+  const vl = s('line', { y1: mt, y2: mt + ph, style: 'stroke:var(--axis)', 'stroke-width': 1 }, cross);
+  const dots = series.map(se => s('circle', { r: 4, style: `fill:${se.color};stroke:var(--surface)`, 'stroke-width': 2 }, cross));
+  const hit = s('rect', { x: ml - 12, y: mt, width: pw + 24, height: ph, class: 'hit', style: 'fill:transparent', tabindex: 0, role: 'img', 'aria-label': 'Passe o mouse para ver cada mês' }, svg);
+  hit.classList.remove('hit'); hit.style.fill = 'transparent';
+  let cur = pts.length - 1;
+  const show = (px, py, idx) => {
+    const p = pts[idx]; cross.style.display = '';
+    vl.setAttribute('x1', x(idx)); vl.setAttribute('x2', x(idx));
+    series.forEach((se, k) => { if (p[se.key] == null) dots[k].style.display = 'none'; else { dots[k].style.display = ''; dots[k].setAttribute('cx', x(idx)); dots[k].setAttribute('cy', y(p[se.key])); } });
+    tipShow(px, py, MN[p.m] + YY, series.map(se => ({ color: se.color, line: true, name: se.name, val: p[se.key] == null ? '–' : fPct(p[se.key]) })), `Faturamento do mês ${fBRL0(p.tot)}`);
+  };
+  hit.addEventListener('pointermove', e => {
+    const b = svg.getBoundingClientRect(), mx = e.clientX - b.left;
+    let idx = 0, best = 1e9; pts.forEach((p, i) => { const dd = Math.abs(x(i) - mx); if (dd < best) { best = dd; idx = i; } });
+    cur = idx; show(e.clientX, e.clientY, idx);
+  });
+  hit.addEventListener('pointerleave', () => { cross.style.display = 'none'; tipHide(); });
+  hit.addEventListener('focus', () => { const b = hit.getBoundingClientRect(); show(b.left + b.width / 2, b.top + 20, cur); });
+  hit.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') cur = Math.max(0, cur - 1); else if (e.key === 'ArrowRight') cur = Math.min(pts.length - 1, cur + 1); else return; e.preventDefault(); const b = hit.getBoundingClientRect(); show(b.left + x(cur) - ml + 12, b.top + 20, cur); });
+  hit.addEventListener('blur', () => { cross.style.display = 'none'; tipHide(); });
+}
+/* ---------- chart: heatmap ---------- */
+function drawHeat(card, rows) {
+  const el = $('.plot', card), W = el.clientWidth || 800;
+  const ms = months();
+  const medIdx = D.med.map((_, i) => i).map(i => ({ i, r: rows.filter(x => x[0] === i) })).filter(o => o.r.length).map(o => ({ i: o.i, name: D.med[o.i], tot: sumV(o.r), cells: ms.map(m => { const c = o.r.filter(x => x[1] === m); return { v: sumV(c), n: c.length }; }) }))
+    .sort((a, b) => b.tot - a.tot);
+  makeTable($('.tbl', card), ['Médico', ...ms.map(m => MN[m] + YY), 'Total'], medIdx.map(o => [o.name, ...o.cells.map(c => c.n ? fBRL0(c.v) : '–'), fBRL0(o.tot)]));
+  if (!medIdx.length) return emptyMsg(el);
+  el.replaceChildren();
+  const lw = 104, mt = 22, rh = 32, H = mt + medIdx.length * rh + 4, cw = (W - lw) / ms.length;
+  const max = Math.max(...medIdx.flatMap(o => o.cells.map(c => c.v)), 1);
+  const svg = s('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Faturamento por médico e mês' }, el);
+  ms.forEach((m, j) => stx(svg, lw + cw * j + cw / 2, 14, MN[m], 't-ax', 'middle'));
+  medIdx.forEach((o, i) => {
+    const y0 = mt + i * rh;
+    stx(svg, lw - 10, y0 + rh / 2 + 4, o.name, 't-lb', 'end');
+    o.cells.forEach((c, j) => {
+      const t = c.v > 0 ? 0.08 + 0.92 * Math.sqrt(c.v / max) : 0;
+      const rect = s('rect', { x: lw + cw * j + 1, y: y0 + 1, width: Math.max(cw - 2, 1), height: rh - 2, rx: 4, tabindex: 0, role: 'img', 'aria-label': `${o.name}, ${MN[ms[j]]}${YY}: ${fBRL0(c.v)}`,
+        style: c.v > 0 ? `fill:color-mix(in srgb, var(--c-prot) ${(t * 100).toFixed(0)}%, var(--surface))` : 'fill:var(--grid);fill-opacity:.55' }, svg);
+      if (c.v > 0 && cw >= 56) stx(svg, lw + cw * j + cw / 2, y0 + rh / 2 + 4, fComp(c.v), 't-v', 'middle', { style: `fill:${t > 0.55 ? '#fff' : 'var(--ink)'};pointer-events:none;font-size:11px` });
+      bindTip(rect, (px, py) => tipShow(px, py, `${o.name} · ${MN[ms[j]]}${YY}`, [{ name: 'Faturamento', val: fBRL0(c.v) }, { name: 'Atendimentos', val: fInt(c.n) }]));
+    });
+  });
+}
+/* ---------- campaigns table ---------- */
+function drawCamps(card, rows) {
+  const box = $('.tbl', card);
+  const meta = rows.filter(r => r[6] === I_META);
+  const by = new Map();
+  rows.forEach(r => { if (r[7] < 0) return; const a = by.get(r[7]) || { c: r[7], n: 0, fat: 0, nv: 0 }; a.n++; if (r[4] != null) { a.fat += r[4]; a.nv++; } by.set(r[7], a); });
+  const list = [...by.values()].sort((a, b) => b.fat - a.fat).slice(0, 12);
+  const totCamp = [...by.values()].reduce((a, c) => a + c.n, 0);
+  $('#campSub').textContent = `${fInt(totCamp)} atendimentos com campanha identificada, de ${fInt(meta.length)} vindos de Meta Ads no período. Os outros não trazem o nome da campanha.`;
+  if (!list.length) return emptyMsg(box, 'Nenhuma campanha identificada com estes filtros.');
+  box.replaceChildren();
+  const max = Math.max(...list.map(l => l.fat), 1);
+  const t = document.createElement('table'); t.className = 'camp';
+  t.innerHTML = '<thead><tr><th>Campanha</th><th>Perfil</th><th class="n">Atendimentos</th><th class="n">Faturamento</th><th class="n">Ticket médio</th></tr></thead>';
+  const tb = document.createElement('tbody');
+  list.forEach(l => {
+    const c = D.camps[l.c], tr = document.createElement('tr');
+    const td1 = document.createElement('td');
+    const a = document.createElement('div'); a.className = 'cname'; a.textContent = (c.name.charAt(0).toUpperCase() + c.name.slice(1).toLowerCase()).replace(/\bcbo\b/, 'CBO');
+    const b = document.createElement('div'); b.className = 'craw'; b.textContent = c.full;
+    td1.append(a, b);
+    const td2 = document.createElement('td'); td2.className = 'ctags'; td2.textContent = [c.perfil && 'IG ' + c.perfil, c.etapa, c.temp].filter(Boolean).join(' · ');
+    const td3 = document.createElement('td'); td3.className = 'n'; td3.textContent = fInt(l.n);
+    const td4 = document.createElement('td'); td4.className = 'n';
+    const bc = document.createElement('div'); bc.className = 'bar-cell';
+    const bt = document.createElement('div'); bt.className = 'bt'; const bb = document.createElement('div'); bb.className = 'b'; bb.style.width = Math.max(2, l.fat / max * 96) + 'px'; bt.append(bb);
+    const bv = document.createElement('span'); bv.className = 'val'; bv.textContent = fBRL0(l.fat);
+    bc.append(bt, bv); td4.append(bc);
+    const td5 = document.createElement('td'); td5.className = 'n'; td5.textContent = l.nv ? fBRL0(l.fat / l.nv) : '–';
+    tr.append(td1, td2, td3, td4, td5); tb.append(tr);
+  });
+  t.append(tb); box.append(t);
+}
+/* ---------- creatives table ---------- */
+let SORT = 'fat';
+function drawCreatives(card, rows) {
+  const box = $('.tbl', card);
+  const mk = () => ({ n: 0, np: 0, fat: 0, nv: 0, meds: new Map() });
+  const add = (a, r) => { a.n++; if (r[3] === 0) a.np++; if (r[4] != null) { a.fat += r[4]; a.nv++; } a.meds.set(r[0], (a.meds.get(r[0]) || 0) + 1); };
+  const ads = new Map(), G = { bio: mk(), utm: mk(), none: mk() };
+  rows.forEach(r => {
+    const c = r[8] < 0 ? null : D.cri[r[8]];
+    if (c && c.kind === 'ad') { if (!ads.has(r[8])) ads.set(r[8], mk()); add(ads.get(r[8]), r); }
+    else add(G[c ? c.kind : 'none'], r);
+  });
+  const tk = a => a.nv ? a.fat / a.nv : -1;
+  const list = [...ads.entries()].map(([k, a]) => Object.assign(a, { k }))
+    .sort((a, b) => SORT === 'n' ? b.n - a.n || b.fat - a.fat : SORT === 'tk' ? tk(b) - tk(a) : b.fat - a.fat);
+  const nAd = list.reduce((a, l) => a + l.n, 0), n = rows.length;
+  $('#criSub').textContent = list.length
+    ? `${fInt(list.length)} criativos com venda. ${fInt(nAd)} atendimentos (${fPct(share(nAd, n))}) vieram com ID de anúncio; ${fInt(G.bio.n)} pelo link da bio e ${fInt(G.none.n + G.utm.n)} sem ID utilizável.`
+    : 'Nenhum atendimento com ID de criativo neste filtro.';
+  $('#segSort').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === SORT)));
+  box.replaceChildren();
+  const groups = [['Link da bio do Instagram (link_in_bio)', G.bio], ['UTM sem preencher (ad.id, perfil)', G.utm], ['Sem ID de criativo', G.none]].filter(g => g[1].n);
+  if (!list.length && !groups.length) return emptyMsg(box, 'Nenhum atendimento com estes filtros.');
+  const max = Math.max(...(list.length ? list : groups.map(g => g[1])).map(l => l.fat), 1);
+  const medTxt = a => { const m = [...a.meds.entries()].sort((x, y) => y[1] - x[1]).map(e => D.med[e[0]]); return m.slice(0, 2).join(', ') + (m.length > 2 ? ` +${m.length - 2}` : ''); };
+  const t = document.createElement('table'); t.className = 'cri';
+  t.innerHTML = '<thead><tr><th>ID do criativo</th><th>Campanha</th><th>Médicos</th><th class="n">Atendimentos</th><th class="n">Protocolos</th><th class="n">Faturamento</th><th class="n">Ticket médio</th></tr></thead>';
+  const tb = document.createElement('tbody');
+  const row = (cellId, a, cls, camp) => {
+    const tr = document.createElement('tr'); if (cls) tr.className = cls;
+    const c1 = document.createElement('td'); c1.append(...cellId);
+    const c2 = document.createElement('td');
+    if (camp) {
+      const x = document.createElement('div'); x.className = 'cname'; x.textContent = (camp.name.charAt(0).toUpperCase() + camp.name.slice(1).toLowerCase()).replace(/\bcbo\b/, 'CBO');
+      const y = document.createElement('div'); y.className = 'csub'; y.textContent = [camp.perfil && 'IG ' + camp.perfil, camp.etapa, camp.temp].filter(Boolean).join(' · ');
+      c2.append(x, y);
+    } else c2.textContent = '–';
+    const c3 = document.createElement('td'); c3.textContent = medTxt(a);
+    const c4 = document.createElement('td'); c4.className = 'n'; c4.textContent = fInt(a.n);
+    const c5 = document.createElement('td'); c5.className = 'n'; c5.textContent = fInt(a.np);
+    const c6 = document.createElement('td'); c6.className = 'n';
+    const bc = document.createElement('div'); bc.className = 'bar-cell';
+    const bt = document.createElement('div'); bt.className = 'bt'; const bb = document.createElement('div'); bb.className = 'b'; bb.style.width = Math.min(96, Math.max(2, a.fat / max * 96)) + 'px'; bt.append(bb);
+    const bv = document.createElement('span'); bv.className = 'val'; bv.textContent = fBRL0(a.fat); bc.append(bt, bv); c6.append(bc);
+    const c7 = document.createElement('td'); c7.className = 'n'; c7.textContent = a.nv ? fBRL0(a.fat / a.nv) : '–';
+    tr.append(c1, c2, c3, c4, c5, c6, c7); tb.append(tr);
+  };
+  list.forEach(l => {
+    const id = D.cri[l.k].id;
+    const sp = document.createElement('span'); sp.className = 'cid'; sp.textContent = id;
+    const cp = document.createElement('button'); cp.type = 'button'; cp.className = 'copy'; cp.textContent = 'copiar';
+    cp.addEventListener('click', () => {
+      const done = (m) => { cp.textContent = m; setTimeout(() => { cp.textContent = 'copiar'; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(id).then(() => done('copiado'), () => done('selecione o ID'));
+      else done('selecione o ID');
+    });
+    const ci = D.cri[l.k].camp;
+    row([sp, cp], l, '', ci >= 0 ? D.camps[ci] : null);
+  });
+  groups.forEach((g, i) => { const lb = document.createElement('span'); lb.textContent = g[0]; row([lb], g[1], 'sp' + (i === 0 ? ' first' : ''), null); });
+  t.append(tb); box.append(t);
+}
+$('#segSort').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; SORT = b.dataset.v; renderAll(); });
+/* ---------- KPIs, hero, notes ---------- */
+function drawKpis(rows) {
+  const tot = sumV(rows), n = rows.length, nv = cntV(rows), pac = uniq(rows);
+  const prot = sumV(rows, r => r[3] === 0), cons = sumV(rows, r => r[3] === 1);
+  const nProt = rows.filter(r => r[3] === 0).length, nCons = n - nProt;
+  const meta = sumV(rows, r => r[6] === I_META), untr = sumV(rows, r => r[6] === I_UNTR);
+  const nMeta = rows.filter(r => r[6] === I_META).length, nUntr = rows.filter(r => r[6] === I_UNTR).length;
+  $('#heroVal').textContent = fBRL0(tot);
+  $('#heroSub').textContent = `${MN[S.from]}${YY} a ${MN[S.to]}${YY} · ${fInt(n)} atendimentos`;
+  const nonVal = rows.filter(r => r[4] == null).length;
+  $('#noVal').textContent = nonVal ? `${fInt(nonVal)} atendimento${nonVal > 1 ? 's' : ''} sem valor no período não entra${nonVal > 1 ? 'm' : ''} nas somas.` : '';
+  const tiles = [
+    ['Atendimentos', fInt(n), `${fInt(nCons)} consultas · ${fInt(nProt)} protocolos`],
+    ['Pacientes únicos', fInt(pac), pac ? `${nf({ maximumFractionDigits: 1 }).format(n / pac)} atendimentos por paciente` : ''],
+    ['Ticket médio', nv ? fBRL0(tot / nv) : '–', `consulta ${cons && nCons ? fBRL0(cons / Math.max(1, rows.filter(r => r[3] === 1 && r[4] != null).length)) : '–'} · protocolo ${prot ? fBRL0(prot / Math.max(1, rows.filter(r => r[3] === 0 && r[4] != null).length)) : '–'}`],
+    ['Protocolos no faturamento', fPct(share(prot, tot)), `${fPct(share(nProt, n))} dos atendimentos`],
+    ['Meta Ads no faturamento', fPct(share(meta, tot)), `${fBRL0(meta)} · ${fInt(nMeta)} atendimentos`],
+    ['Sem tracking no faturamento', fPct(share(untr, tot)), `${fInt(nUntr)} atendimentos (${fPct(share(nUntr, n))})`],
+  ];
+  const box = $('#tiles'); box.replaceChildren();
+  tiles.forEach(([k, v, d]) => {
+    const t = document.createElement('div'); t.className = 'tile';
+    const a = document.createElement('div'); a.className = 'k'; a.textContent = k;
+    const b = document.createElement('div'); b.className = 'v'; b.textContent = v;
+    const c = document.createElement('div'); c.className = 'd'; c.textContent = d;
+    t.append(a, b, c); box.append(t);
+  });
+  // notes
+  const notes = [];
+  if (tot > 0) {
+    const perMed = D.med.map((name, i) => ({ name, v: sumV(rows, r => r[0] === i) })).sort((a, b) => b.v - a.v);
+    if (perMed.filter(m => m.v > 0).length > 1) notes.push([perMed[0].name, ` concentra ${fPct(share(perMed[0].v, tot))} do faturamento (${fCompBRL(perMed[0].v)}).`]);
+    const perM = months().map(m => ({ m, v: sumV(rows, r => r[1] === m) }));
+    if (perM.length > 1) { const best = perM.reduce((a, b) => b.v > a.v ? b : a); notes.push([MN[best.m] + YY, ` foi o melhor mês, com ${fCompBRL(best.v)}.`]); }
+    const ms = months();
+    const share0 = m => { const t = sumV(rows, r => r[1] === m); return t > 0 ? sumV(rows, r => r[1] === m && r[6] === I_UNTR) / t : null; };
+    const a0 = share0(ms[0]), a1 = share0(ms[ms.length - 1]);
+    if (ms.length > 1 && a0 != null && a1 != null) notes.push([`Sem tracking`, ` ${a1 < a0 ? 'caiu' : 'subiu'} de ${fPct(a0)} do faturamento em ${MN[ms[0]]} para ${fPct(a1)} em ${MN[ms[ms.length - 1]]}.`]);
+    else notes.push(['Sem tracking', ` responde por ${fPct(share(untr, tot))} do faturamento.`]);
+  }
+  const ul = $('#notes'); ul.replaceChildren();
+  notes.slice(0, 3).forEach(([b, t]) => { const li = document.createElement('li'); const bb = document.createElement('b'); bb.textContent = b; li.append(bb, document.createTextNode(t)); ul.append(li); });
+  ul.hidden = !notes.length;
+}
+/* ---------- render ---------- */
+const plots = [];
+let lastW = new Map();
+function renderAll() {
+  const rows = slice();
+  drawKpis(rows);
+  const byMed = D.med.map((name, i) => { const r = rows.filter(x => x[0] === i); return { label: name, prot: sumV(r, x => x[3] === 0), cons: sumV(r, x => x[3] === 1), n: r.length }; }).filter(o => o.n > 0).sort((a, b) => (b.prot + b.cons) - (a.prot + a.cons));
+  const byOrig = D.orig.map((name, i) => { const r = rows.filter(x => x[6] === i); return { label: name, prot: sumV(r, x => x[3] === 0), cons: sumV(r, x => x[3] === 1), n: r.length }; }).filter(o => o.n > 0).sort((a, b) => (b.prot + b.cons) - (a.prot + a.cons));
+  drawMonthly($('#cMonth'), rows);
+  drawHBars($('#cMed'), byMed, 'Faturamento por médico, empilhado por tipo', 'Médico');
+  drawHBars($('#cOrig'), byOrig, 'Faturamento por origem, empilhado por tipo', 'Origem');
+  drawTrack($('#cTrack'), rows);
+  drawHeat($('#cHeat'), rows);
+  drawCamps($('#cCamp'), rows);
+  drawCreatives($('#cCri'), rows);
+  tipHide();
+}
+/* ---------- filters ---------- */
+function buildFilters() {
+  const from = $('#fFrom'), to = $('#fTo');
+  MN.forEach((m, i) => { [from, to].forEach(sel => { const o = document.createElement('option'); o.value = i; o.textContent = m + YY; sel.append(o); }); });
+  from.value = S.from; to.value = S.to;
+  from.addEventListener('change', () => { S.from = +from.value; if (S.to < S.from) { S.to = S.from; to.value = S.to; } sync(); });
+  to.addEventListener('change', () => { S.to = +to.value; if (S.from > S.to) { S.from = S.to; from.value = S.from; } sync(); });
+  const mk = (box, items, set, hint) => items.forEach((name, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = name; b.setAttribute('aria-pressed', 'false');
+    if (hint && hint[name]) b.title = hint[name];
+    b.addEventListener('click', () => { set.has(i) ? set.delete(i) : set.add(i); sync(); });
+    box.append(b);
+  });
+  mk($('#chMed'), D.med, S.meds);
+  mk($('#chOrig'), D.orig, S.origs, ORIG_HINT);
+  [['Todos', -1], ['Protocolo', 0], ['Consulta', 1]].forEach(([n, v]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = n; b.dataset.v = v;
+    b.addEventListener('click', () => { S.tipo = v; sync(); });
+    $('#segTipo').append(b);
+  });
+  $('#btnClear').addEventListener('click', () => { S.from = 0; S.to = ULT; S.meds.clear(); S.origs.clear(); S.tipo = -1; from.value = 0; to.value = ULT; sync(); });
+}
+function sync() {
+  [...$('#chMed').children].forEach((b, i) => b.setAttribute('aria-pressed', S.meds.has(i)));
+  [...$('#chOrig').children].forEach((b, i) => b.setAttribute('aria-pressed', S.origs.has(i)));
+  [...$('#segTipo').children].forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === S.tipo)));
+  $('#btnClear').hidden = !(S.from !== 0 || S.to !== ULT || S.meds.size || S.origs.size || S.tipo !== -1);
+  renderAll();
+}
+root.querySelectorAll('.card .tog').forEach(b => b.addEventListener('click', () => {
+  const card = b.closest('.card'), on = card.dataset.view !== 'table';
+  card.dataset.view = on ? 'table' : 'chart'; b.setAttribute('aria-pressed', on); b.textContent = on ? 'Ver gráfico' : 'Ver tabela';
+}));
+$('#totalRows').textContent = fInt(D.rows.length);
+if (D.meta) { $('#titulo').textContent = 'Painel de Pacientes ' + D.meta.ano; $('#consolidado').textContent = D.meta.ate; }
+buildFilters(); sync();
+let raf = 0; const wrapEl = $('.wrap');
+const ro = new ResizeObserver(entries => {
+  let changed = false;
+  for (const e of entries) { const w = Math.round(e.contentRect.width); if (lastW.get(e.target) !== w) { lastW.set(e.target, w); changed = true; } }
+  if (changed) { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { if (wrapEl.isConnected) renderAll(); }); }
+}).observe($('.wrap'));
+return ro;
+}
+})();
+</script>
+</body>
+</html>
