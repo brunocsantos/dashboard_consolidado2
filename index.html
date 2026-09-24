@@ -322,8 +322,11 @@ const sessao = {
 };
 
 async function api(corpo) {
-  // text/plain evita a checagem prévia de CORS que o Apps Script não responde
-  const r = await fetch(API_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(corpo) });
+  // Tudo por GET: o Google redireciona pedidos de outros sites e um POST se perderia no caminho
+  const qs = new URLSearchParams();
+  Object.keys(corpo).forEach(k => { const v = corpo[k]; if (v !== undefined && v !== null && v !== false) qs.set(k, v === true ? '1' : String(v)); });
+  qs.set('_', Date.now());
+  const r = await fetch(API_URL + (API_URL.includes('?') ? '&' : '?') + qs.toString(), { redirect: 'follow', cache: 'no-store' });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
@@ -363,7 +366,7 @@ function telaLogin(aviso) {
     btn.disabled = true; btn.textContent = 'Entrando…'; msg.textContent = '';
     try {
       const r = await api({ acao: 'login', usuario, senha });
-      if (!r.ok) throw new Error(r.mensagem || 'Não foi possível entrar.');
+      if (!r.ok || !r.token) throw new Error(r.mensagem || 'O servidor não confirmou o login. Confira a URL do Apps Script (API_URL).');
       sessao.salvar({ token: r.token, nome: r.nome });
       carregar();
     } catch (e) {
@@ -388,6 +391,7 @@ async function carregar() {
     const D = await api({ acao: 'dados', token: s.token });
     if (D.erro === 'sessao') { sessao.limpar(); return telaLogin(D.mensagem); }
     if (D.erro) throw new Error(D.mensagem || D.erro);
+    if (!Array.isArray(D.rows)) throw new Error('resposta inesperada do servidor: ' + JSON.stringify(D).slice(0, 150));
     versaoAtual = D.meta && D.meta.versao;
     limparTela();
     ro = start(D);
